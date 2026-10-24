@@ -1,0 +1,413 @@
+{
+  "info": {
+    "name": "2373401010312_HuynhTanNhat_GoRest",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Lab05 GoRest API chaining + CSV data-driven tests. Run with Newman -d users.csv. Uses setNextRequest to ensure duplicate before DELETE and deleted GET immediately after DELETE."
+  },
+  "item": [
+    {
+      "name": "Positive_Cases",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{name}}\",\n  \"gender\": \"{{gender}}\",\n  \"email\": \"{{email}}\",\n  \"status\": \"{{status}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const row = {name: pm.iterationData.get(\"name\"), gender: pm.iterationData.get(\"gender\"), email: pm.iterationData.get(\"email\"), status: pm.iterationData.get(\"status\")};",
+                  "for (const [key, value] of Object.entries(row)) {",
+                  "  if (typeof value !== \"string\" || !value.trim()) throw new Error(\"CSV missing field: \" + key);",
+                  "}",
+                  "// Keep the CSV as source data; use a unique test email on each pipeline run.",
+                  "const parts = row.email.trim().split(\"@\");",
+                  "if (parts.length !== 2) throw new Error(\"Invalid CSV email: \" + row.email);",
+                  "const uniqueEmail = parts[0] + \".\" + Date.now() + \".\" + pm.info.iteration + \".\" + Math.random().toString(36).slice(2,8) + \"@\" + parts[1];",
+                  "pm.variables.set(\"name\", row.name);",
+                  "pm.variables.set(\"gender\", row.gender);",
+                  "pm.variables.set(\"email\", uniqueEmail);",
+                  "pm.variables.set(\"status\", row.status);",
+                  "console.log(\"CSV row\", pm.info.iteration + 1, row.name);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"POST User - Status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const u = pm.response.json();",
+                  "  pm.test(\"Created ID and email\", () => { pm.expect(u.id).to.be.a(\"number\"); pm.expect(u.email).to.eql(pm.variables.get(\"email\")); });",
+                  "  pm.environment.set(\"userId\", String(u.id));",
+                  "  pm.environment.set(\"createdEmail\", u.email);",
+                  "} else {",
+                  "  throw new Error(\"Create failed; stopping this iteration. HTTP \" + pm.response.code + \": \" + pm.response.text());",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users/{{userId}}",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"GET User - Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const u = pm.response.json();",
+                  "  pm.test(\"Correct user ID and email\", () => {pm.expect(String(u.id)).to.eql(pm.environment.get(\"userId\"));pm.expect(u.email).to.eql(pm.environment.get(\"createdEmail\"));});",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users/{{userId}}",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"PATCH User - Status 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.test(\"User inactive\", () => pm.expect(pm.response.json().status).to.eql(\"inactive\"));",
+                  "// Run duplicate-email check while the created user still exists.",
+                  "pm.execution.setNextRequest(\"Duplicate User\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users/{{userId}}",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"DELETE User - Status 204\", () => pm.response.to.have.status(204));",
+                  "if (pm.response.code === 204) pm.test(\"Empty DELETE body\", () => pm.expect(pm.response.text()).to.be.empty);",
+                  "pm.execution.setNextRequest(\"Read User delete\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Negative_Cases",
+      "item": [
+        {
+          "name": "Duplicate User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate Email Test\",\n  \"gender\": \"male\",\n  \"email\": \"{{createdEmail}}\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"POST Duplicate Email - Status 422\", () => pm.response.to.have.status(422));",
+                  "if (pm.response.code === 422) {",
+                  "  const errors = pm.response.json();",
+                  "  pm.test(\"Duplicate email validation\", () => pm.expect(errors.some(e => e.field === \"email\" && /taken|already/i.test(e.message))).to.be.true);",
+                  "}",
+                  "pm.execution.setNextRequest(\"Delete User\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read User delete",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users/{{userId}}",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"GET Deleted User - Status 404\", () => pm.response.to.have.status(404));",
+                  "if (pm.response.code === 404) pm.test(\"Not found response\", () => pm.expect(pm.response.json()).to.have.property(\"message\"));",
+                  "pm.execution.setNextRequest(\"Create User No Token\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User No Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://gorest.co.in/public/v2/users",
+              "host": [
+                "gorest",
+                "co",
+                "in"
+              ],
+              "protocol": "https",
+              "path": [
+                "public",
+                "v2",
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No Token Test\",\n  \"gender\": \"female\",\n  \"email\": \"no-token@example.com\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"POST without token - Status 401\", () => pm.response.to.have.status(401));",
+                  "if (pm.response.code === 401) pm.test(\"Unauthorized message\", () => pm.expect(pm.response.json()).to.have.property(\"message\"));",
+                  "// Last request in the collection: Newman proceeds to the next CSV iteration automatically."
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
