@@ -1,4 +1,3 @@
-
 name: GoRest API Testing
 
 on:
@@ -27,6 +26,6 @@ jobs:
         run: |
           newman run GoRest_Collection.json \
             -e GoRest_Environment.json \
+            -d users.csv \
             --env-var "token=$GOREST_TOKEN" \
-            --collection-var "userIndex=0" \
             --reporters cli
